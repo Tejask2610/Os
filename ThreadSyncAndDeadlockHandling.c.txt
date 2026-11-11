@@ -1,0 +1,195 @@
+#include <stdio.h> 
+#include <stdlib.h> 
+#include <pthread.h> 
+#include <semaphore.h> 
+#include <unistd.h> 
+#define N 5 
+sem_t forks[N]; 
+sem_t room; 
+void *philosopher(void *arg) 
+{ 
+int id = *(int *)arg; 
+while (1) 
+{ 
+// Thinking 
+printf("Philosopher %d is thinking...\n", id); 
+sleep(1); 
+// Allow maximum N-1 philosophers to compete for forks 
+sem_wait(&room); 
+// Pick up left fork 
+sem_wait(&forks[id]); 
+printf("Philosopher %d picked up left fork %d\n", 
+id, id); 
+// Pick up right fork 
+sem_wait(&forks[(id + 1) % N]); 
+printf("Philosopher %d picked up right fork %d\n", 
+id, (id + 1) % N); 
+// Eating 
+printf("Philosopher %d is eating...\n", id); 
+sleep(2); 
+// Put down right fork 
+sem_post(&forks[(id + 1) % N]); 
+printf("Philosopher %d put down right fork %d\n", 
+id, (id + 1) % N); 
+// Put down left fork 
+sem_post(&forks[id]); 
+printf("Philosopher %d put down left fork %d\n", 
+id, id); 
+// Leave room 
+sem_post(&room); 
+ 
+        printf("Philosopher %d finished eating.\n\n", id); 
+    } 
+ 
+    return NULL; 
+} 
+ 
+int main() 
+{ 
+    pthread_t philosophers[N]; 
+    int id[N]; 
+ 
+    // Initialize fork semaphores 
+    for (int i = 0; i < N; i++) 
+    { 
+        sem_init(&forks[i], 0, 1); 
+    } 
+ 
+    // Allow only 4 philosophers at a time 
+    sem_init(&room, 0, N - 1); 
+ 
+    // Create philosopher threads 
+    for (int i = 0; i < N; i++) 
+    { 
+        id[i] = i; 
+        pthread_create(&philosophers[i], NULL, 
+                       philosopher, &id[i]); 
+    } 
+ 
+    // Wait for philosopher threads 
+    for (int i = 0; i < N; i++) 
+    { 
+        pthread_join(philosophers[i], NULL); 
+    } 
+ 
+    // Destroy semaphores 
+    for (int i = 0; i < N; i++) 
+    { 
+        sem_destroy(&forks[i]); 
+    } 
+ 
+    sem_destroy(&room); 
+ 
+    return 0; 
+} 
+ 
+ 
+OUTPUT: 
+(base) avcoe@avcoe-HP-Pro-Tower-400-G9-PCI-Desktop-PC:~$ gcc Ass4.c -o Ass4 
+(base) avcoe@avcoe-HP-Pro-Tower-400-G9-PCI-Desktop-PC:~$ ./Ass4 
+Philosopher 1 is thinking... 
+Philosopher 0 is thinking... 
+Philosopher 4 is thinking... 
+Philosopher 2 is thinking... 
+Philosopher 3 is thinking... 
+Philosopher 1 picked up left fork 1 
+Philosopher 1 picked up right fork 2 
+Philosopher 1 is eating... 
+Philosopher 4 picked up left fork 4 
+Philosopher 0 picked up left fork 0 
+Philosopher 3 picked up left fork 3 
+Philosopher 1 put down right fork 2 
+Philosopher 1 put down left fork 1 
+Philosopher 1 finished eating. 
+Philosopher 1 is thinking... 
+Philosopher 0 picked up right fork 1 
+Philosopher 0 is eating... 
+Philosopher 2 picked up left fork 2 
+Philosopher 0 put down right fork 1 
+Philosopher 0 put down left fork 0 
+Philosopher 0 finished eating. 
+Philosopher 0 is thinking... 
+Philosopher 4 picked up right fork 0 
+Philosopher 4 is eating... 
+Philosopher 1 picked up left fork 1 
+Philosopher 4 put down right fork 0 
+Philosopher 4 put down left fork 4 
+Philosopher 4 finished eating. 
+Philosopher 4 is thinking... 
+Philosopher 3 picked up right fork 4 
+Philosopher 3 is eating... 
+Philosopher 0 picked up left fork 0 
+Philosopher 3 put down right fork 4 
+Philosopher 3 put down left fork 3 
+Philosopher 3 finished eating. 
+Philosopher 3 is thinking... 
+Philosopher 2 picked up right fork 3 
+Philosopher 2 is eating... 
+Philosopher 4 picked up left fork 4 
+Philosopher 2 put down right fork 3 
+Philosopher 2 put down left fork 2 
+Philosopher 2 finished eating. 
+Philosopher 2 is thinking... 
+Philosopher 3 picked up left fork 3 
+Philosopher 1 picked up right fork 2 
+Philosopher 1 is eating... 
+Philosopher 1 put down right fork 2 
+Philosopher 1 put down left fork 1 
+Philosopher 1 finished eating. 
+Philosopher 1 is thinking... 
+Philosopher 0 picked up right fork 1 
+Philosopher 0 is eating... 
+Philosopher 2 picked up left fork 2 
+Philosopher 0 put down right fork 1 
+Philosopher 0 put down left fork 0 
+Philosopher 0 finished eating. 
+Philosopher 0 is thinking... 
+Philosopher 4 picked up right fork 0 
+Philosopher 4 is eating... 
+Philosopher 1 picked up left fork 1 
+Philosopher 4 put down right fork 0 
+Philosopher 4 put down left fork 4 
+Philosopher 4 finished eating. 
+Philosopher 4 is thinking... 
+Philosopher 0 picked up left fork 0 
+Philosopher 3 picked up right fork 4 
+Philosopher 3 is eating... 
+Philosopher 3 put down right fork 4 
+Philosopher 3 put down left fork 3 
+Philosopher 3 finished eating. 
+Philosopher 3 is thinking... 
+Philosopher 2 picked up right fork 3 
+Philosopher 2 is eating... 
+Philosopher 4 picked up left fork 4 
+Philosopher 2 put down right fork 3 
+Philosopher 2 put down left fork 2 
+Philosopher 2 finished eating. 
+Philosopher 2 is thinking... 
+Philosopher 3 picked up left fork 3 
+Philosopher 1 picked up right fork 2 
+Philosopher 1 is eating... 
+Philosopher 1 put down right fork 2 
+Philosopher 1 put down left fork 1 
+Philosopher 1 finished eating. 
+Philosopher 0 picked up right fork 1 
+Philosopher 0 is eating... 
+Philosopher 2 picked up left fork 2 
+Philosopher 0 put down right fork 1 
+Philosopher 0 put down left fork 0 
+Philosopher 0 finished eating. 
+Philosopher 4 picked up right fork 0 
+Philosopher 4 is eating... 
+Philosopher 4 put down right fork 0 
+Philosopher 4 put down left fork 4 
+Philosopher 4 finished eating. 
+Philosopher 3 picked up right fork 4 
+Philosopher 3 is eating... 
+Philosopher 3 put down right fork 4 
+Philosopher 3 put down left fork 3 
+Philosopher 3 finished eating. 
+Philosopher 2 picked up right fork 3 
+Philosopher 2 is eating... 
+Philosopher 2 put down right fork 3 
+Philosopher 2 put down left fork 2 
+Philosopher 2 finished eating. 
+(base) avcoe@avcoe-HP-Pro-Tower-400-G9-PCI-Desktop-PC:~$  

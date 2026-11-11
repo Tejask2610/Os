@@ -1,0 +1,200 @@
+Code:-
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <fcntl.h>
+#include <string.h>
+
+int main()
+{
+    int pipe1[2], pipe2[2];
+    pid_t pid;
+    char pathname[256];
+    char buffer[1024];
+    ssize_t n;
+    int fd;
+
+    // Create first pipe: Parent to Child
+    if (pipe(pipe1) == -1)
+    {
+        perror("Pipe 1 creation failed");
+        return 1;
+    }
+
+    // Create second pipe: Child to Parent
+    if (pipe(pipe2) == -1)
+    {
+        perror("Pipe 2 creation failed");
+        return 1;
+    }
+
+    // Create child process
+    pid = fork();
+
+    if (pid < 0)
+    {
+        perror("Fork failed");
+        return 1;
+    }
+
+    if (pid > 0)
+    {
+        // PARENT PROCESS
+
+        close(pipe1[0]);  // Close unused read end
+        close(pipe2[1]);  // Close unused write end
+
+        printf("Parent Process\n");
+        printf("Enter the file pathname: ");
+        fflush(stdout);
+
+        if (fgets(pathname, sizeof(pathname), stdin) == NULL)
+        {
+            fprintf(stderr, "Error reading pathname\n");
+            close(pipe1[1]);
+            close(pipe2[0]);
+            wait(NULL);
+            return 1;
+        }
+
+        pathname[strcspn(pathname, "\n")] = '\0';
+
+        // Send pathname to child
+        if (write(pipe1[1], pathname,
+                  strlen(pathname) + 1) == -1)
+        {
+            perror("Write failed");
+        }
+
+        close(pipe1[1]);
+
+        // Receive file contents from child
+        printf("\nFile Contents:\n");
+
+        while ((n = read(pipe2[0], buffer, sizeof(buffer))) > 0)
+        {
+            ssize_t sent = 0;
+
+            while (sent < n)
+            {
+                ssize_t w = write(STDOUT_FILENO,
+                                  buffer + sent, n - sent);
+                if (w <= 0)
+                {
+                    perror("Output failed");
+                    break;
+                }
+                sent += w;
+            }
+        }
+
+        if (n < 0)
+            perror("Read failed");
+
+        close(pipe2[0]);
+
+        // Wait for child process
+        wait(NULL);
+
+        printf("\nParent process completed.\n");
+    }
+    else
+    {
+        // CHILD PROCESS
+
+        close(pipe1[1]);  // Close unused write end
+        close(pipe2[0]);  // Close unused read end
+
+        // Read pathname from parent
+        n = read(pipe1[0], pathname, sizeof(pathname) - 1);
+
+        if (n <= 0)
+        {
+            perror("Pathname read failed");
+            close(pipe1[0]);
+            close(pipe2[1]);
+            _exit(1);
+        }
+
+        pathname[n] = '\0';
+        close(pipe1[0]);
+
+        printf(""); // No output required from child
+
+        // Open the file
+        fd = open(pathname, O_RDONLY);
+
+        if (fd == -1)
+        {
+            const char *msg = "Error: Unable to open the file.\n";
+            write(pipe2[1], msg, strlen(msg));
+            close(pipe2[1]);
+            _exit(1);
+        }
+
+        // Read file and send contents to parent
+        while ((n = read(fd, buffer, sizeof(buffer))) > 0)
+        {
+            ssize_t sent = 0;
+
+            while (sent < n)
+            {
+                ssize_t w = write(pipe2[1], buffer + sent,
+                                  n - sent);
+                if (w <= 0)
+                {
+                    perror("Pipe write failed");
+                    close(fd);
+                    close(pipe2[1]);
+                    _exit(1);
+                }
+                sent += w;
+            }
+        }
+
+        if (n < 0)
+            perror("File read failed");
+
+        close(fd);
+        close(pipe2[1]);
+
+        _exit(n < 0 ? 1 : 0);
+    }
+
+    return 0;
+}
+
+
+----------------------------- OUTPUT -----------------------------------
+
+avcoe@avcoe-HP-Compaq-Pro-4300-SFF-PC:~$ gcc as7.c -o as7 && ./as7
+as7.c: In function ‘main’:
+as7.c:124:16: warning: zero-length gnu_printf format string [-Wformat-zero-length]
+  124 |         printf(""); // No output required from child
+      |  
+              
+Parent Process
+Enter the file pathname: shweta.txt
+
+File Contents:
+hello My Name is Shweta. My College Name is AVCOE,Sangamner.
+
+Parent process completed.
+
+avcoe@avcoe-HP-Compaq-Pro-4300-SFF-PC:~$ gcc as7.c -o as7 && ./as7
+as7.c: In function ‘main’:
+as7.c:124:16: warning: zero-length gnu_printf format string [-Wformat-zero-length]
+  124 |         printf(""); // No output required from child
+      |                
+
+Parent Process
+Enter the file pathname: sample.txt
+
+File Contents:
+Error: Unable to open the file.
+
+Parent process completed.
+
